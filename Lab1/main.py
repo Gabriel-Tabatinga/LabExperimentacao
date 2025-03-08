@@ -4,12 +4,14 @@ import csv
 from datetime import datetime
 import time
 
-GITHUB_TOKEN = "abc" # tirei token por segurança""
+# Token de autenticação do GitHub (Personal Access Token)
+GITHUB_TOKEN = ""
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Content-Type": "application/json"
 }
 
+# Query GraphQL para buscar os 100 primeiros repositórios por estrelas
 def get_graphql_query(after_cursor=None):
     cursor_part = f', after: "{after_cursor}"' if after_cursor else ""
     return """
@@ -48,6 +50,7 @@ def get_graphql_query(after_cursor=None):
     }
     """ % cursor_part
 
+# Função para verificar o limite de taxa da API
 def check_rate_limit():
     query = """
     {
@@ -72,6 +75,7 @@ def check_rate_limit():
         print(f"Erro ao verificar rate limit: {response.status_code}")
         print(response.text)
 
+# Função para fazer a requisição à API com retentativas
 def fetch_repositories(after_cursor=None, retries=3):
     query = get_graphql_query(after_cursor)
     for attempt in range(retries):
@@ -79,7 +83,7 @@ def fetch_repositories(after_cursor=None, retries=3):
             "https://api.github.com/graphql",
             headers=HEADERS,
             json={"query": query},
-            verify=False 
+            verify=False  # Solução temporária para SSL
         )
         
         if response.status_code == 200:
@@ -88,20 +92,23 @@ def fetch_repositories(after_cursor=None, retries=3):
             print(f"Tentativa {attempt + 1}/{retries} - Erro na requisição: {response.status_code}")
             print(response.text)
             if attempt < retries - 1:
-                time.sleep(5)
+                time.sleep(5)  # Espera antes de tentar novamente
     print("Falha após todas as tentativas.")
     return None
 
+# Função para calcular a idade do repositório em anos
 def calculate_age(created_at):
     created_date = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
     current_date = datetime.now()
     return (current_date - created_date).days / 365.25
 
+# Função para calcular dias desde a última atualização
 def days_since_update(updated_at):
     updated_date = datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%SZ")
     current_date = datetime.now()
     return (current_date - updated_date).days
 
+# Função para salvar os dados em CSV
 def save_to_csv(data, filename="github_repos.csv"):
     headers = [
         "name", "age_years", "pull_requests", "releases", 
@@ -110,7 +117,7 @@ def save_to_csv(data, filename="github_repos.csv"):
     
     with open(filename, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        if f.tell() == 0:
+        if f.tell() == 0:  # Escreve cabeçalho apenas se o arquivo estiver vazio
             writer.writerow(headers)
         
         for repo in data:
@@ -124,6 +131,7 @@ def save_to_csv(data, filename="github_repos.csv"):
                 repo["closed_issues_ratio"]
             ])
 
+# Função principal para coletar os 1000 repositórios
 def collect_data():
     all_data = []
     after_cursor = None
@@ -159,16 +167,17 @@ def collect_data():
             if total_collected >= 1000:
                 break
 
-        save_to_csv(all_data[-len(repositories):])
+        save_to_csv(all_data[-len(repositories):])  # Salva apenas os novos dados
         after_cursor = page_info["endCursor"]
         
         if not page_info["hasNextPage"] or total_collected >= 1000:
             break
         
-        time.sleep(5)
+        time.sleep(5)  # Intervalo para evitar sobrecarga
 
     return all_data
 
+# Executa o programa
 if __name__ == "__main__":
     print("Verificando limite de taxa...")
     check_rate_limit()

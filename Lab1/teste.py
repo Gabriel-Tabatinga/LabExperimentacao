@@ -4,7 +4,7 @@ import csv
 from datetime import datetime
 import time
 
-GITHUB_TOKEN = "abc" # tirei token por segurança
+GITHUB_TOKEN = ""
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Content-Type": "application/json"
